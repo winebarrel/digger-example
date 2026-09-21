@@ -15,10 +15,15 @@ data "aws_iam_policy_document" "digger_assume_role" {
     }
 
     # このリポジトリからのワークフローだけに限定する。
+    #
+    # 2026-07-15 以降に作られたリポジトリは sub が immutable subject claim
+    # 形式になり、オーナーとリポジトリの数値 ID が埋め込まれる。
+    # repo:<owner>/<repo>:* では一致しない。
+    # 値は gh api repos/<owner>/<repo>/actions/oidc/customization/sub で確認できる。
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:winebarrel/digger-example:*"]
+      values   = ["repo:winebarrel@117768/digger-example@1378927815:*"]
     }
   }
 }
@@ -29,9 +34,10 @@ resource "aws_iam_role" "digger" {
 }
 
 data "aws_iam_policy_document" "digger" {
-  # state と tfplan の読み書き。use_lockfile のロックも同じバケットを使う。
+  # state、そのロックファイル、tfplan の読み書き。全て同じバケットに置く。
+  # digger に許す書き込みはここだけ。
   statement {
-    sid    = "State"
+    sid    = "StateObjects"
     effect = "Allow"
 
     actions = [
@@ -44,13 +50,13 @@ data "aws_iam_policy_document" "digger" {
   }
 
   statement {
-    sid       = "ListBucket"
+    sid       = "StateBucket"
     effect    = "Allow"
     actions   = ["s3:ListBucket"]
     resources = [aws_s3_bucket.digger.arn]
   }
 
-  # digger の PR ロック。backendless では DynamoDB に記録される。
+  # digger の PR ロック。pr_locks を使う以上ここは書き込みが要る。
   # テーブルは初回実行時に digger が自分で作る。
   statement {
     sid    = "PrLockCreate"
@@ -83,35 +89,41 @@ data "aws_iam_policy_document" "digger" {
     resources = ["arn:aws:dynamodb:*:${data.aws_caller_identity.current.account_id}:table/DiggerDynamoDBLockTable"]
   }
 
-  # tf/ 自身を digger に管理させるため、この構成が触るリソースへの権限を渡す。
-  # 実運用では扱うリソースに合わせて絞る。
+  # plan に必要な読み取り。apply は人間がやるので書き込みは渡さない。
+  # この構成が管理しているリソースだけに絞る。
   statement {
-    sid    = "ManageSelf"
+    sid    = "ReadIam"
     effect = "Allow"
 
     actions = [
       "iam:GetRole",
       "iam:GetRolePolicy",
-      "iam:GetOpenIDConnectProvider",
       "iam:ListRolePolicies",
       "iam:ListAttachedRolePolicies",
       "iam:ListInstanceProfilesForRole",
-      "iam:PutRolePolicy",
-      "iam:UpdateAssumeRolePolicy",
-      "iam:UpdateOpenIDConnectProviderThumbprint",
-      "s3:GetBucket*",
-      "s3:GetLifecycleConfiguration",
-      "s3:GetEncryptionConfiguration",
-      "s3:PutBucket*",
-      "s3:PutLifecycleConfiguration",
-      "s3:PutEncryptionConfiguration",
+      "iam:ListRoleTags",
+      "iam:GetOpenIDConnectProvider",
     ]
 
     resources = [
       aws_iam_role.digger.arn,
       aws_iam_openid_connect_provider.github.arn,
-      aws_s3_bucket.digger.arn,
     ]
+  }
+
+  statement {
+    sid    = "ReadBucketConfig"
+    effect = "Allow"
+
+    actions = [
+      "s3:GetAccelerateConfiguration",
+      "s3:GetBucket*",
+      "s3:GetEncryptionConfiguration",
+      "s3:GetLifecycleConfiguration",
+      "s3:GetReplicationConfiguration",
+    ]
+
+    resources = [aws_s3_bucket.digger.arn]
   }
 }
 
