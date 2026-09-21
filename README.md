@@ -1,5 +1,7 @@
 # digger-example
 
+[![Digger Workflow](https://github.com/winebarrel/digger-example/actions/workflows/digger_workflow.yml/badge.svg)](https://github.com/winebarrel/digger-example/actions/workflows/digger_workflow.yml)
+
 [digger](https://github.com/diggerhq/digger) (2025-11-07 に OpenTaco へリブランド) を
 backendless モードで動かす例。GitHub Actions + OpenTofu + AWS の OIDC 認証。
 
