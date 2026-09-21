@@ -23,10 +23,23 @@ jobs:
       contents: write      # auto_merge に必要
       id-token: write      # OIDC に必要
       pull-requests: write # PR コメントの投稿に必要
-      issues: read         # PR 番号が issue かどうかの判定に必要
+      issues: write        # PR 番号の判定と、コメントへのリアクションに必要
       statuses: write      # apply_requirements の mergeable 判定に必要
 
     steps:
+      # コメントを受け取ったことを示す。backendless ではリアクションが
+      # 付かない (digger が呼ぶのは orchestrator 経路だけ) ので自分でやる。
+      - name: Acknowledge the comment
+        if: github.event_name == 'issue_comment'
+        run: |
+          gh api --method POST \
+            "repos/${GH_REPO}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content=eyes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+
       # checkout は digger 側でやる。issue_comment のときは
       # refs/pull/<PR番号>/merge を取ってくれる。
       - uses: diggerhq/digger@v0.6.151
