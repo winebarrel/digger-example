@@ -2,7 +2,7 @@
 # null_resource の置き換えとして OpenTofu が用意しているもの。
 # input を書き換えると plan に差分が出る。
 resource "terraform_data" "greeting" {
-  input = "hello"
+  input = "hello digger"
 }
 
 output "greeting" {
