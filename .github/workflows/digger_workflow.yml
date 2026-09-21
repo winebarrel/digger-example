@@ -1,0 +1,59 @@
+name: Digger Workflow
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize]
+  issue_comment:
+    types: [created]
+
+# backendless は並列実行できないので直列に流す
+concurrency:
+  group: digger
+
+jobs:
+  digger:
+    # digger 宛でないコメントでジョブを起動しない
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, 'digger'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write      # auto_merge に必要
+      id-token: write      # OIDC に必要
+      pull-requests: write # PR コメントの投稿に必要
+      issues: read         # PR 番号が issue かどうかの判定に必要
+      statuses: write      # apply_requirements の mergeable 判定に必要
+
+    steps:
+      # issue_comment はデフォルトブランチで動くので、PR のコードを明示的に取る。
+      # digger 本体も configure-checkout で同じことをするが、それより前に
+      # .tool-versions を読みたいので自前でやる。
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/pull/${{ github.event.issue.number }}/merge
+        if: github.event_name == 'issue_comment'
+
+      - uses: actions/checkout@v7
+        if: github.event_name != 'issue_comment'
+
+      - id: opentofu_version
+        run: echo "value=$(sed -n 's/^opentofu \(.*\)$/\1/p' .tool-versions)" >> "$GITHUB_OUTPUT"
+
+      - uses: diggerhq/digger@v0.6.151
+        with:
+          no-backend: true
+          configure-checkout: false
+          setup-opentofu: true
+          opentofu-version: ${{ steps.opentofu_version.outputs.value }}
+          setup-aws: true
+          aws-region: ap-northeast-1
+          aws-role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/digger-gha
+          # plan ファイルを S3 に置く。これを設定しないと apply 時に
+          # plan を取り直すので、レビューした内容と違うものが適用されうる。
+          upload-plan-destination: aws
+          upload-plan-destination-s3-bucket: winebarrel-digger-example
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
