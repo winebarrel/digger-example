@@ -103,6 +103,11 @@ PR コメントは `<details>` で包まれる。`AsCollapsibleComment(reportTit
 digger がコメントにリアクションを付けるのは orchestrator 経路だけ。
 backendless では付かないので、ワークフローで `gh api` を叩いている。
 
+### 起動したジョブへのリンクは自分で投稿する
+
+コメントから起動したときに、どのワークフロー実行が動いているのかを digger は
+教えてくれない。`digger apply` のときだけワークフローでリンクを投稿している。
+
 ## 参考
 
 - [Digger を試してみた](https://qiita.com/minamijoyo/items/b61806b570d9d1257f0b)

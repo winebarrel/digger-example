@@ -40,6 +40,20 @@ jobs:
           GH_REPO: ${{ github.repository }}
           COMMENT_ID: ${{ github.event.comment.id }}
 
+      # apply はコメントから起動するので、どのジョブが動いているのか
+      # PR から辿れるようにリンクを投稿する。
+      - name: Post the job link
+        if: |
+          github.event_name == 'issue_comment' &&
+          startsWith(github.event.comment.body, 'digger apply')
+        run: |
+          gh pr comment "$PR_NUMBER" --body "apply を開始しました: $RUN_URL"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
       # checkout は digger 側でやる。issue_comment のときは
       # refs/pull/<PR番号>/merge を取ってくれる。
       - uses: diggerhq/digger@v0.6.151
