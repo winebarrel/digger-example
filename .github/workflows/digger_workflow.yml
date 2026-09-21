@@ -27,29 +27,16 @@ jobs:
       statuses: write      # apply_requirements の mergeable 判定に必要
 
     steps:
-      # issue_comment はデフォルトブランチで動くので、PR のコードを明示的に取る。
-      # digger 本体も configure-checkout で同じことをするが、それより前に
-      # .tool-versions を読みたいので自前でやる。
-      - uses: actions/checkout@v7
-        with:
-          ref: refs/pull/${{ github.event.issue.number }}/merge
-        if: github.event_name == 'issue_comment'
-
-      - uses: actions/checkout@v7
-        if: github.event_name != 'issue_comment'
-
-      - id: opentofu_version
-        run: echo "value=$(sed -n 's/^opentofu \(.*\)$/\1/p' .tool-versions)" >> "$GITHUB_OUTPUT"
-
+      # checkout は digger 側でやる。issue_comment のときは
+      # refs/pull/<PR番号>/merge を取ってくれる。
       - uses: diggerhq/digger@v0.6.151
         with:
           no-backend: true
-          configure-checkout: false
           setup-opentofu: true
-          opentofu-version: ${{ steps.opentofu_version.outputs.value }}
+          opentofu-version: 1.12.6
           setup-aws: true
           aws-region: ap-northeast-1
-          aws-role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/digger-gha
+          aws-role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/digger-gha
           # plan ファイルを S3 に置く。これを設定しないと apply 時に
           # plan を取り直すので、レビューした内容と違うものが適用されうる。
           upload-plan-destination: aws
