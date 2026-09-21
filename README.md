@@ -63,51 +63,6 @@ gh variable set AWS_ACCOUNT_ID --body <アカウントID>
 `digger apply` はロールが読み取り専用なので失敗する。apply はローカルから
 `tofu apply` で実行する。
 
-## はまりどころ
-
-### immutable subject claim
-
-2026-07-15 以降に作られたリポジトリは OIDC トークンの `sub` にオーナーと
-リポジトリの数値 ID が埋め込まれる。信頼ポリシーを
-`repo:<owner>/<repo>:*` にしていると一致せず、
-`Not authorized to perform sts:AssumeRoleWithWebIdentity` になる。
-
-実際の値はこれで確認できる。
-
-```
-gh api repos/<owner>/<repo>/actions/oidc/customization/sub
-```
-
-### issue_comment はデフォルトブランチのワークフローで動く
-
-GitHub の仕様。`digger apply` のようなコメント起動は、PR ブランチではなく
-main のワークフロー定義が使われる。ワークフローを変更する PR では、plan
-(`pull_request` イベント、PR ブランチ) と apply (`issue_comment`、main) で
-定義がずれる。
-
-PR のコードそのものは digger が `refs/pull/<PR番号>/merge` を checkout する
-ので問題ない。ずれるのはワークフロー定義だけ。
-
-### plan ファイルの保存先は必ず設定する
-
-`upload-plan-destination` を設定しないと plan ファイルが保存されず、apply が
-plan を取り直す。レビューした内容と違うものが適用されうる。
-
-### Digger run report は必ず畳まれる
-
-PR コメントは `<details>` で包まれる。`AsCollapsibleComment(reportTitle, false)`
-とハードコードされているので設定では開けない。
-
-### リアクションは backendless では付かない
-
-digger がコメントにリアクションを付けるのは orchestrator 経路だけ。
-backendless では付かないので、ワークフローで `gh api` を叩いている。
-
-### 起動したジョブへのリンクは自分で投稿する
-
-コメントから起動したときに、どのワークフロー実行が動いているのかを digger は
-教えてくれない。`digger apply` のときだけワークフローでリンクを投稿している。
-
 ## 参考
 
 - [Digger を試してみた](https://qiita.com/minamijoyo/items/b61806b570d9d1257f0b)
